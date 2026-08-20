@@ -20,6 +20,37 @@ FinanceSimply is a privacy-first, on-device Android application designed to trac
 - **Local Database**: Room Database (SQLite)
 - **JSON Serialization**: Gson
 
+## Technical Architecture & Codebase Structure
+
+The application strictly follows the **MVVM (Model-View-ViewModel)** architectural pattern. Since the app is local-first, the architecture is designed around Jetpack Room as the single source of truth, heavily leveraging Kotlin Coroutines and `StateFlow` for reactive UI updates.
+
+### 1. Data Layer (`com.example.financesimply.data`)
+- **`SpendSenseDatabase`**: The central Room database instance. Currently on Schema Version 3. Destructive migrations are enabled during active development.
+- **`TransactionEntity`**: The core data model. It tracks the raw merchant name, amount, category, tags, and specific variables like `budgetImpactAmount` (which differs from `amount` if a bill was split).
+- **`SplitParticipant`**: A data class detailing split bills (e.g., who owes what). It is stored alongside transactions using **`Converters.kt`** (Gson serialization).
+- **`TransactionDao`**: Handles all SQL operations. It uses Flow-based queries for real-time UI updates (e.g., automatically summing up total expenses vs. budgets).
+
+### 2. UI Layer (`com.example.financesimply.ui`)
+- **Jetpack Compose**: The entire app is written in Jetpack Compose, emphasizing a Premium Dark Mode aesthetic (`Color.kt`, `Theme.kt`).
+- **`SpendSenseApp.kt`**: The root Compose navigation host. It also hosts the global `ContextCaptureSheet` overlay.
+
+#### Screens (`ui.screen`)
+- **`DashboardScreen`**: The main hub. It renders budget progression bars, the "Owed to You" summary, and quick stats.
+- **`TransactionsScreen`**: A chronologically ordered feed of transactions. It utilizes `FilterChips` to let users quickly pivot between "All", "Untagged", and "Splits".
+- **`SettingsScreen`**: Manages user budgets, favorite outlets (Regex mappings), monitored packages, and addiction trackers.
+
+#### Components (`ui.component`)
+- **`ContextCaptureSheet`**: The dynamic bottom sheet that appears when a transaction is detected (or tapped). It allows users to categorize, tag, and execute "Split Bill" mathematics instantly.
+- **`TransactionCard`**: The reusable Compose element for rendering individual transactions. It has built-in logic to visually differentiate Split transactions and standard transactions.
+
+### 3. State Management (`ui.viewmodel`)
+- **`DashboardViewModel`**: Computes macro-level math. Queries the DB to determine total amount spent in a month, remaining budget, and pending split money owed to the user.
+- **`ContextCaptureViewModel`**: Handles the volatile state of tagging a transaction. It encapsulates the math for automatically dividing split bills evenly among participants before committing to the DB.
+- **`TransactionListViewModel`**: Exposes the stream of all transactions to the `TransactionsScreen` and manages active view filters.
+
+### 4. Background Services (`worker`)
+- **`UntaggedReminderWorker`**: Uses Android's WorkManager to check the local database for pending/untagged transactions. If you ignore notifications, this worker will politely remind you to tag them to keep your budget accurate.
+
 ## Getting Started
 
 Since FinanceSimply requires specific Android permissions to intercept transaction notifications and read SMS (upcoming feature), this application is designed to be sideloaded.
