@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
 import com.example.financesimply.data.db.dao.FavoriteOutletDao
 import com.example.financesimply.data.db.dao.TransactionDao
 import com.example.financesimply.data.db.dao.WatchedItemDao
@@ -17,9 +18,10 @@ import com.example.financesimply.data.db.entity.WatchedItemEntity
         FavoriteOutletEntity::class,
         WatchedItemEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
+@TypeConverters(com.example.financesimply.data.db.entity.Converters::class)
 abstract class SpendSenseDatabase : RoomDatabase() {
 
     abstract fun transactionDao(): TransactionDao

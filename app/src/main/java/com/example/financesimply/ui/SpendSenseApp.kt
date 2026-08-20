@@ -175,15 +175,7 @@ fun SpendSenseApp(
 
         // Global context capture overlay
         ContextCaptureSheet(
-            state = contextCaptureState,
-            onCategoryChanged = contextCaptureViewModel::updateCategory,
-            onTagChanged = contextCaptureViewModel::updateTag,
-            onNoteChanged = contextCaptureViewModel::updateNote,
-            onForSomeoneElseChanged = contextCaptureViewModel::updateIsForSomeoneElse,
-            onSomeoneElseNameChanged = contextCaptureViewModel::updateSomeoneElseName,
-            onExemptChanged = contextCaptureViewModel::updateIsExempt,
-            onSave = contextCaptureViewModel::save,
-            onDismiss = contextCaptureViewModel::dismiss
+            viewModel = contextCaptureViewModel
         )
     }
 }

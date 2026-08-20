@@ -29,6 +29,7 @@ data class DashboardUiState(
     val categoryBreakdown: List<CategoryTotal> = emptyList(),
     val topOutlets: List<MerchantTotal> = emptyList(),
     val dailySpendTrend: List<DailySpend> = emptyList(),
+    val owedToYou: Double = 0.0,
     val isLoading: Boolean = true
 )
 
@@ -76,7 +77,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 userPreferences.monthlyBudget,
                 transactionDao.getCategoryBreakdown(monthStart, monthEnd),
                 transactionDao.getTopOutlets(monthStart, monthEnd),
-                transactionDao.getDailySpendTrend(monthStart, monthEnd)
+                transactionDao.getDailySpendTrend(monthStart, monthEnd),
+                transactionDao.getTransactionsWithSplits()
             ) { args ->
                 val total = args[0] as Double
                 val income = args[1] as Double
@@ -87,11 +89,22 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 val outlets = args[4] as List<MerchantTotal>
                 @Suppress("UNCHECKED_CAST")
                 val trend = args[5] as List<DailySpend>
+                @Suppress("UNCHECKED_CAST")
+                val splits = args[6] as List<com.example.financesimply.data.db.entity.TransactionEntity>
                 
                 val remaining = budget - total
                 val dailyAvg = if (daysPassed > 0) total / daysPassed else 0.0
                 val projected = dailyAvg * totalDaysInMonth
                 val projectedOverspend = (projected - budget).coerceAtLeast(0.0)
+
+                var totalOwed = 0.0
+                splits.forEach { txn ->
+                    txn.splitDetails?.forEach { participant ->
+                        if (!participant.isSettled) {
+                            totalOwed += participant.amountOwed
+                        }
+                    }
+                }
 
                 DashboardUiState(
                     monthlyTotal = total,
@@ -105,6 +118,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     categoryBreakdown = categories,
                     topOutlets = outlets,
                     dailySpendTrend = trend,
+                    owedToYou = totalOwed,
                     isLoading = false
                 )
             }.stateIn(

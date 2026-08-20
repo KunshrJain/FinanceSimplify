@@ -17,7 +17,7 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.automirrored.filled.LabelOff
 import androidx.compose.material.icons.filled.People
-import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.CallSplit
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -53,7 +53,10 @@ fun TransactionCard(
     Surface(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
-        color = androidx.compose.ui.graphics.Color.Transparent
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 2.dp,
+        shadowElevation = 4.dp
     ) {
         Column {
         Row(
@@ -136,35 +139,43 @@ fun TransactionCard(
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        if (transaction.isForSomeoneElse) {
+                        if (transaction.splitDetails != null) {
                             Icon(
-                                imageVector = Icons.Default.People,
-                                contentDescription = "For someone else",
+                                imageVector = Icons.Default.CallSplit,
+                                contentDescription = "Split bill",
                                 modifier = Modifier.size(12.dp),
                                 tint = MaterialTheme.colorScheme.secondary
                             )
-                        }
-                        if (transaction.isExemptFromBudget) {
-                            Icon(
-                                imageVector = Icons.Default.Shield,
-                                contentDescription = "Exempt from budget",
-                                modifier = Modifier.size(12.dp),
-                                tint = MaterialTheme.colorScheme.tertiary
-                            )
+                            val unsettledCount = transaction.splitDetails.count { !it.isSettled }
+                            if (unsettledCount > 0) {
+                                Text(
+                                    text = "$unsettledCount to settle",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                            }
                         }
                     }
                 }
             }
 
             // Right: amount
-            Text(
-                text = "${if (isDebit) "−" else "+"}₹${formatAmount(transaction.amount)}",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = amountColor
-            )
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = "${if (isDebit) "−" else "+"}₹${formatAmount(transaction.amount)}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = amountColor
+                )
+                if (transaction.splitDetails != null) {
+                    Text(
+                        text = "You paid ₹${formatAmount(transaction.budgetImpactAmount)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
-        androidx.compose.material3.HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
         }
     }
 }

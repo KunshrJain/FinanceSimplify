@@ -42,23 +42,21 @@ interface TransactionDao {
 
 
     @Query("""
-        SELECT COALESCE(SUM(amount), 0.0) FROM transactions 
+        SELECT COALESCE(SUM(budgetImpactAmount), 0.0) FROM transactions 
         WHERE transactionType = 'DEBIT' 
-        AND isExemptFromBudget = 0 
         AND timestamp BETWEEN :startTime AND :endTime
     """)
     fun getMonthlyTotal(startTime: Long, endTime: Long): Flow<Double>
 
     @Query("""
-        SELECT COALESCE(SUM(amount), 0.0) FROM transactions 
+        SELECT COALESCE(SUM(budgetImpactAmount), 0.0) FROM transactions 
         WHERE transactionType = 'DEBIT' 
-        AND isExemptFromBudget = 0 
         AND timestamp BETWEEN :startTime AND :endTime
     """)
     suspend fun getMonthlyTotalSync(startTime: Long, endTime: Long): Double
 
     @Query("""
-        SELECT category, SUM(amount) as total FROM transactions 
+        SELECT category, SUM(budgetImpactAmount) as total FROM transactions 
         WHERE transactionType = 'DEBIT' 
         AND timestamp BETWEEN :startTime AND :endTime 
         AND category != '' 
@@ -68,7 +66,7 @@ interface TransactionDao {
     fun getCategoryBreakdown(startTime: Long, endTime: Long): Flow<List<CategoryTotal>>
 
     @Query("""
-        SELECT merchantFriendly as merchant, SUM(amount) as total, COUNT(*) as count 
+        SELECT merchantFriendly as merchant, SUM(budgetImpactAmount) as total, COUNT(*) as count 
         FROM transactions 
         WHERE transactionType = 'DEBIT' 
         AND timestamp BETWEEN :startTime AND :endTime 
@@ -96,7 +94,7 @@ interface TransactionDao {
     suspend fun getFrequencyForItem(value: String, startTime: Long, endTime: Long): Int
 
     @Query("""
-        SELECT COALESCE(SUM(amount), 0.0) FROM transactions 
+        SELECT COALESCE(SUM(budgetImpactAmount), 0.0) FROM transactions 
         WHERE (merchantFriendly = :value OR merchantRaw LIKE '%' || :value || '%' OR category = :value) 
         AND transactionType = 'DEBIT'
         AND timestamp BETWEEN :startTime AND :endTime
@@ -121,7 +119,7 @@ interface TransactionDao {
     fun getAllTags(): Flow<List<String>>
 
     @Query("""
-        SELECT date(timestamp / 1000, 'unixepoch', 'localtime') as day, SUM(amount) as total 
+        SELECT date(timestamp / 1000, 'unixepoch', 'localtime') as day, SUM(budgetImpactAmount) as total 
         FROM transactions 
         WHERE transactionType = 'DEBIT' 
         AND timestamp BETWEEN :startTime AND :endTime 
@@ -129,6 +127,9 @@ interface TransactionDao {
         ORDER BY day ASC
     """)
     fun getDailySpendTrend(startTime: Long, endTime: Long): Flow<List<DailySpend>>
+
+    @Query("SELECT * FROM transactions WHERE splitDetails IS NOT NULL")
+    fun getTransactionsWithSplits(): Flow<List<TransactionEntity>>
 }
 
 data class CategoryTotal(

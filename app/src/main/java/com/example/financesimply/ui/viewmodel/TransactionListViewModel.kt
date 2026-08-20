@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 enum class TransactionFilter {
-    ALL, UNTAGGED, EXEMPT
+    ALL, UNTAGGED, SPLIT
 }
 
 data class TransactionListUiState(
@@ -43,7 +43,7 @@ class TransactionListViewModel(application: Application) : AndroidViewModel(appl
                 val filtered = when (_currentFilter.value) {
                     TransactionFilter.ALL -> allTransactions
                     TransactionFilter.UNTAGGED -> allTransactions.filter { it.status == com.example.financesimply.data.db.entity.TransactionStatus.PENDING }
-                    TransactionFilter.EXEMPT -> allTransactions.filter { it.isExemptFromBudget }
+                    TransactionFilter.SPLIT -> allTransactions.filter { it.splitDetails != null }
                 }
                 _uiState.value = TransactionListUiState(
                     transactions = filtered,
@@ -64,19 +64,13 @@ class TransactionListViewModel(application: Application) : AndroidViewModel(appl
         transaction: TransactionEntity,
         category: String? = null,
         tag: String? = null,
-        note: String? = null,
-        isForSomeoneElse: Boolean? = null,
-        someoneElseName: String? = null,
-        isExemptFromBudget: Boolean? = null
+        note: String? = null
     ) {
         viewModelScope.launch {
             val updated = transaction.copy(
                 category = category ?: transaction.category,
                 tag = tag ?: transaction.tag,
                 note = note ?: transaction.note,
-                isForSomeoneElse = isForSomeoneElse ?: transaction.isForSomeoneElse,
-                someoneElseName = someoneElseName ?: transaction.someoneElseName,
-                isExemptFromBudget = isExemptFromBudget ?: transaction.isExemptFromBudget,
                 status = com.example.financesimply.data.db.entity.TransactionStatus.TAGGED
             )
             transactionDao.update(updated)

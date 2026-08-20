@@ -81,6 +81,9 @@ dependencies {
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
 
+    // Gson
+    implementation("com.google.code.gson:gson:2.10.1")
+
     // Vico Charts
     implementation(libs.vico.compose.m3)
 

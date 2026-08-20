@@ -17,9 +17,8 @@ data class ContextCaptureUiState(
     val categoryInput: String = "",
     val tagInput: String = "",
     val noteInput: String = "",
-    val isForSomeoneElse: Boolean = false,
-    val someoneElseName: String = "",
-    val isExemptFromBudget: Boolean = false,
+    val isSplit: Boolean = false,
+    val splitParticipants: List<com.example.financesimply.data.db.entity.SplitParticipant> = emptyList(),
     val categorySuggestions: List<String> = emptyList(),
     val tagSuggestions: List<String> = emptyList(),
     val isVisible: Boolean = false
@@ -59,9 +58,8 @@ class ContextCaptureViewModel(application: Application) : AndroidViewModel(appli
                 transaction = transaction,
                 categoryInput = transaction.category,
                 tagInput = transaction.tag,
-                isForSomeoneElse = transaction.isForSomeoneElse,
-                someoneElseName = transaction.someoneElseName,
-                isExemptFromBudget = transaction.isExemptFromBudget,
+                isSplit = transaction.splitDetails != null,
+                splitParticipants = transaction.splitDetails ?: emptyList(),
                 categorySuggestions = categories,
                 tagSuggestions = tags,
                 isVisible = true
@@ -81,16 +79,55 @@ class ContextCaptureViewModel(application: Application) : AndroidViewModel(appli
         _uiState.value = _uiState.value.copy(noteInput = note)
     }
 
-    fun updateIsForSomeoneElse(value: Boolean) {
-        _uiState.value = _uiState.value.copy(isForSomeoneElse = value)
+    fun updateIsSplit(value: Boolean) {
+        _uiState.value = _uiState.value.copy(isSplit = value)
+        if (value && _uiState.value.splitParticipants.isEmpty()) {
+            addParticipant("") // Add an empty row by default
+        }
     }
 
-    fun updateSomeoneElseName(name: String) {
-        _uiState.value = _uiState.value.copy(someoneElseName = name)
+    fun addParticipant(name: String) {
+        val current = _uiState.value.splitParticipants.toMutableList()
+        current.add(com.example.financesimply.data.db.entity.SplitParticipant(name, 0.0))
+        _uiState.value = _uiState.value.copy(splitParticipants = current)
     }
 
-    fun updateIsExempt(value: Boolean) {
-        _uiState.value = _uiState.value.copy(isExemptFromBudget = value)
+    fun updateParticipantName(index: Int, name: String) {
+        val current = _uiState.value.splitParticipants.toMutableList()
+        if (index in current.indices) {
+            current[index] = current[index].copy(name = name)
+            _uiState.value = _uiState.value.copy(splitParticipants = current)
+        }
+    }
+
+    fun updateParticipantAmount(index: Int, amount: Double) {
+        val current = _uiState.value.splitParticipants.toMutableList()
+        if (index in current.indices) {
+            current[index] = current[index].copy(amountOwed = amount)
+            _uiState.value = _uiState.value.copy(splitParticipants = current)
+        }
+    }
+    
+    fun removeParticipant(index: Int) {
+        val current = _uiState.value.splitParticipants.toMutableList()
+        if (index in current.indices) {
+            current.removeAt(index)
+            _uiState.value = _uiState.value.copy(splitParticipants = current)
+        }
+    }
+
+    fun autoDivideSplit() {
+        val totalAmount = _uiState.value.transaction?.amount ?: 0.0
+        val current = _uiState.value.splitParticipants.toMutableList()
+        // Divide by participants + user
+        val splitCount = current.size + 1
+        if (splitCount > 1) {
+            val share = totalAmount / splitCount
+            for (i in current.indices) {
+                current[i] = current[i].copy(amountOwed = share)
+            }
+            _uiState.value = _uiState.value.copy(splitParticipants = current)
+        }
     }
 
     /**
@@ -101,13 +138,18 @@ class ContextCaptureViewModel(application: Application) : AndroidViewModel(appli
         val transaction = state.transaction ?: return
 
         viewModelScope.launch {
+            val budgetImpact = if (state.isSplit) {
+                transaction.amount - state.splitParticipants.sumOf { it.amountOwed }
+            } else {
+                transaction.amount
+            }
+
             val updated = transaction.copy(
                 category = state.categoryInput,
                 tag = state.tagInput,
                 note = state.noteInput,
-                isForSomeoneElse = state.isForSomeoneElse,
-                someoneElseName = state.someoneElseName,
-                isExemptFromBudget = state.isExemptFromBudget,
+                budgetImpactAmount = budgetImpact,
+                splitDetails = if (state.isSplit && state.splitParticipants.isNotEmpty()) state.splitParticipants else null,
                 status = com.example.financesimply.data.db.entity.TransactionStatus.TAGGED
             )
             transactionDao.update(updated)

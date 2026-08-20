@@ -94,23 +94,23 @@ fun TransactionsScreen(
                 selected = state.filter == TransactionFilter.ALL,
                 onClick = { viewModel.setFilter(TransactionFilter.ALL) },
                 label = { Text("All") },
-                shape = RoundedCornerShape(4.dp)
+                shape = RoundedCornerShape(12.dp)
             )
             FilterChip(
                 selected = state.filter == TransactionFilter.UNTAGGED,
                 onClick = { viewModel.setFilter(TransactionFilter.UNTAGGED) },
                 label = { Text("Untagged") },
-                shape = RoundedCornerShape(4.dp),
+                shape = RoundedCornerShape(12.dp),
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = MaterialTheme.colorScheme.errorContainer,
                     selectedLabelColor = MaterialTheme.colorScheme.onErrorContainer
                 )
             )
             FilterChip(
-                selected = state.filter == TransactionFilter.EXEMPT,
-                onClick = { viewModel.setFilter(TransactionFilter.EXEMPT) },
-                label = { Text("Exempt") },
-                shape = RoundedCornerShape(4.dp)
+                selected = state.filter == TransactionFilter.SPLIT,
+                onClick = { viewModel.setFilter(TransactionFilter.SPLIT) },
+                label = { Text("Splits") },
+                shape = RoundedCornerShape(12.dp)
             )
         }
 
