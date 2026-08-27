@@ -26,6 +26,15 @@ class HdfcBankParser : NotificationParser {
         setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
     )
 
+    // Credit SMS pattern: "Rs.{amount} credited to HDFC Bank A/c ... from VPA {sender} (UPI ...)"
+    // Matches the exact HDFC credit alert SMS format:
+    //   Credit Alert!
+    //   Rs.38.00 credited to HDFC Bank A/c XX7370 on 07-07-26 from VPA 9926064242@superyes (UPI 655441818439)
+    private val creditSmsPattern = Regex(
+        """Rs\.?([\d,]+\.?\d*)\s+credited\s+to\s+HDFC\s+Bank\s+A/c.*?from\s+VPA\s+(\S+?)(?:\s*\(UPI|\s*$)""",
+        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
+    )
+
     // Credit pattern: "Received Rs.{amount} ... From {sender}"
     private val creditPattern = Regex(
         """(?:Received|Credited)\s+Rs\.?([\d,]+\.?\d*)\s*.*?(?:From|from)\s+(.+?)(?:\s*On|\s*$)""",
@@ -58,7 +67,20 @@ class HdfcBankParser : NotificationParser {
             )
         }
 
-        // Try primary credit pattern
+        // Try HDFC credit SMS pattern (specific format: "Rs.XX credited to HDFC Bank A/c ... from VPA sender")
+        creditSmsPattern.find(combined)?.let { match ->
+            val amount = match.groupValues[1].replace(",", "").toDoubleOrNull() ?: return null
+            val vpa = match.groupValues[2].trim()
+            // Clean up VPA: "9926064242@superyes" → "9926064242", "asifmalvasi0-4@okaxis" → "asifmalvasi0-4"
+            val merchantName = vpa.substringBefore("@").takeIf { it.isNotBlank() } ?: vpa
+            return ParsedTransaction(
+                amount = amount,
+                merchantName = merchantName,
+                transactionType = TransactionType.CREDIT
+            )
+        }
+
+        // Try generic credit pattern
         creditPattern.find(combined)?.let { match ->
             val amount = match.groupValues[1].replace(",", "").toDoubleOrNull() ?: return null
             val merchant = match.groupValues[2].trim().takeIf { it.isNotBlank() }

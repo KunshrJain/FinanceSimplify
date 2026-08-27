@@ -36,6 +36,7 @@ data class TransactionEntity(
     val note: String = "",
     val budgetImpactAmount: Double = amount,
     val splitDetails: List<SplitParticipant>? = null,
+    val isExemptFromBudget: Boolean = false,
     val status: TransactionStatus = TransactionStatus.PENDING,
     val sourceApp: String = "",
     val timestamp: Long = System.currentTimeMillis(),

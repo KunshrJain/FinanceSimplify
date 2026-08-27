@@ -3,18 +3,20 @@ package com.example.financesimply.ui.component
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.People
@@ -22,7 +24,6 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -50,7 +51,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.TextButton
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.foundation.layout.fillMaxHeight
+import com.example.financesimply.data.db.entity.TransactionType
 import com.example.financesimply.ui.viewmodel.ContextCaptureViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -66,13 +67,15 @@ fun ContextCaptureSheet(
     ModalBottomSheet(
         onDismissRequest = { viewModel.dismiss() },
         sheetState = sheetState,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp),
         containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 4.dp
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .imePadding()
                 .padding(horizontal = 24.dp, vertical = 8.dp)
                 .padding(bottom = 32.dp)
         ) {
@@ -82,7 +85,7 @@ fun ContextCaptureSheet(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "New Transaction",
                         style = MaterialTheme.typography.titleLarge,
@@ -95,7 +98,8 @@ fun ContextCaptureSheet(
                             }
                         }",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
                     )
                 }
                 IconButton(onClick = { viewModel.dismiss() }) {
@@ -105,7 +109,7 @@ fun ContextCaptureSheet(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            val isCredit = transaction.transactionType == com.example.financesimply.data.db.entity.TransactionType.CREDIT
+            val isCredit = transaction.transactionType == TransactionType.CREDIT
 
             // Category input with suggestions
             Text(
@@ -124,7 +128,7 @@ fun ContextCaptureSheet(
                 singleLine = true
             )
 
-            // Category suggestion chips
+            // Category suggestion chips — horizontally scrollable
             if (state.categorySuggestions.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 val filtered = if (state.categoryInput.isBlank()) {
@@ -136,10 +140,11 @@ fun ContextCaptureSheet(
                 }
 
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    // Using a simple scrollable row of chips
                     filtered.forEach { suggestion ->
                         FilterChip(
                             selected = state.categoryInput == suggestion,
@@ -165,6 +170,29 @@ fun ContextCaptureSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Exempt from budget toggle
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Shield,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Exempt from budget")
+                }
+                Switch(
+                    checked = state.isExemptFromBudget,
+                    onCheckedChange = { viewModel.updateExemptFromBudget(it) }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             // Split bill toggle
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -175,7 +203,7 @@ fun ContextCaptureSheet(
                     Icon(
                         Icons.Default.CallSplit,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Split this bill?")
@@ -208,7 +236,9 @@ fun ContextCaptureSheet(
                     
                     state.splitParticipants.forEachIndexed { index, participant ->
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -218,22 +248,56 @@ fun ContextCaptureSheet(
                                 modifier = Modifier.weight(1f),
                                 placeholder = { Text("Name") },
                                 shape = RoundedCornerShape(12.dp),
-                                singleLine = true
+                                singleLine = true,
+                                textStyle = MaterialTheme.typography.bodySmall
                             )
                             OutlinedTextField(
                                 value = if (participant.amountOwed == 0.0) "" else participant.amountOwed.toString(),
                                 onValueChange = { 
                                     viewModel.updateParticipantAmount(index, it.toDoubleOrNull() ?: 0.0)
                                 },
-                                modifier = Modifier.weight(0.8f),
-                                placeholder = { Text("Amount") },
+                                modifier = Modifier.weight(0.7f),
+                                placeholder = { Text("₹") },
+                                prefix = { Text("₹", style = MaterialTheme.typography.bodySmall) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 shape = RoundedCornerShape(12.dp),
-                                singleLine = true
+                                singleLine = true,
+                                textStyle = MaterialTheme.typography.bodySmall
                             )
-                            IconButton(onClick = { viewModel.removeParticipant(index) }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Remove", tint = MaterialTheme.colorScheme.error)
+                            IconButton(
+                                onClick = { viewModel.removeParticipant(index) },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "Remove",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp)
+                                )
                             }
+                        }
+                    }
+
+                    // Show budget impact summary
+                    if (state.splitParticipants.isNotEmpty()) {
+                        val othersTotal = state.splitParticipants.sumOf { it.amountOwed }
+                        val yourShare = transaction.amount - othersTotal
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Your share",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "₹${"%,.2f".format(yourShare.coerceAtLeast(0.0))}",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
                     }
                 }

@@ -1,10 +1,5 @@
 package com.example.financesimply.ui
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -39,10 +34,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.financesimply.service.TransactionEventBus
+
 import com.example.financesimply.ui.component.ContextCaptureSheet
 import com.example.financesimply.ui.screen.AddictionScreen
 import com.example.financesimply.ui.screen.DashboardScreen
+import com.example.financesimply.ui.screen.InsightsScreen
 import com.example.financesimply.ui.screen.OnboardingScreen
 import com.example.financesimply.ui.screen.SettingsScreen
 import com.example.financesimply.ui.screen.TransactionsScreen
@@ -165,7 +161,7 @@ fun SpendSenseApp(
                     )
                 }
                 composable(Screen.Insights.route) {
-                    AddictionScreen()
+                    InsightsScreen()
                 }
                 composable(Screen.Settings.route) {
                     SettingsScreen()

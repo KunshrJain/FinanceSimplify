@@ -13,37 +13,44 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
-    primary = PrimaryAccent,
+    primary = PureWhite,
     secondary = PrimaryAccentVariant,
     tertiary = BudgetSafe,
     background = PureBlack,
     surface = SurfaceDark,
     surfaceVariant = SurfaceVariantDark,
-    onPrimary = PureWhite,
-    onSecondary = PureWhite,
+    onPrimary = PureBlack,
+    onSecondary = PureBlack,
     onTertiary = PureBlack,
     onBackground = PureWhite,
     onSurface = PureWhite,
     onSurfaceVariant = TextGray,
     outline = DividerGray,
     outlineVariant = DividerGray,
+    primaryContainer = SurfaceVariantDark,
+    onPrimaryContainer = PureWhite,
     error = BudgetDanger,
     errorContainer = BudgetDanger.copy(alpha = 0.1f),
     onErrorContainer = BudgetDanger
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = PrimaryAccent,
-    secondary = PrimaryAccentVariant,
+    primary = PureBlack,
+    secondary = Color(0xFF444444),
     tertiary = BudgetSafe,
     background = PureWhite,
-    surface = Color(0xFFF8F9FA),
-    surfaceVariant = Color(0xFFFFFFFF),
+    surface = Color(0xFFF5F5F5),
+    surfaceVariant = PureWhite,
     onPrimary = PureWhite,
     onSecondary = PureWhite,
     onTertiary = PureWhite,
     onBackground = PureBlack,
     onSurface = PureBlack,
+    onSurfaceVariant = Color(0xFF666666),
+    outline = Color(0xFFDDDDDD),
+    outlineVariant = Color(0xFFDDDDDD),
+    primaryContainer = Color(0xFFEEEEEE),
+    onPrimaryContainer = PureBlack,
     surfaceTint = PureWhite
 )
 

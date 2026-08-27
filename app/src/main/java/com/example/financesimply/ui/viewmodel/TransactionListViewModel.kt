@@ -5,6 +5,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.financesimply.data.db.SpendSenseDatabase
 import com.example.financesimply.data.db.entity.TransactionEntity
+import com.example.financesimply.data.db.entity.TransactionStatus
+import com.example.financesimply.data.db.entity.TransactionType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -13,7 +15,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 enum class TransactionFilter {
-    ALL, UNTAGGED, SPLIT
+    ALL, UNTAGGED, SPLIT, DEBIT_ONLY, CREDIT_ONLY, EXEMPT, OWED
 }
 
 data class TransactionListUiState(
@@ -42,12 +44,28 @@ class TransactionListViewModel(application: Application) : AndroidViewModel(appl
             transactionDao.getAll().collect { allTransactions ->
                 val filtered = when (_currentFilter.value) {
                     TransactionFilter.ALL -> allTransactions
-                    TransactionFilter.UNTAGGED -> allTransactions.filter { it.status == com.example.financesimply.data.db.entity.TransactionStatus.PENDING }
-                    TransactionFilter.SPLIT -> allTransactions.filter { it.splitDetails != null }
+                    TransactionFilter.UNTAGGED -> allTransactions.filter { 
+                        it.status == TransactionStatus.PENDING 
+                    }
+                    TransactionFilter.SPLIT -> allTransactions.filter { 
+                        it.splitDetails != null 
+                    }
+                    TransactionFilter.DEBIT_ONLY -> allTransactions.filter { 
+                        it.transactionType == TransactionType.DEBIT 
+                    }
+                    TransactionFilter.CREDIT_ONLY -> allTransactions.filter { 
+                        it.transactionType == TransactionType.CREDIT 
+                    }
+                    TransactionFilter.EXEMPT -> allTransactions.filter { 
+                        it.isExemptFromBudget || (it.budgetImpactAmount == 0.0 && it.amount > 0.0 && it.transactionType == TransactionType.DEBIT)
+                    }
+                    TransactionFilter.OWED -> allTransactions.filter { 
+                        it.splitDetails?.any { p -> !p.isSettled } == true 
+                    }
                 }
                 _uiState.value = TransactionListUiState(
                     transactions = filtered,
-                    untaggedCount = allTransactions.count { it.status == com.example.financesimply.data.db.entity.TransactionStatus.PENDING },
+                    untaggedCount = allTransactions.count { it.status == TransactionStatus.PENDING },
                     filter = _currentFilter.value,
                     isLoading = false
                 )
@@ -71,7 +89,7 @@ class TransactionListViewModel(application: Application) : AndroidViewModel(appl
                 category = category ?: transaction.category,
                 tag = tag ?: transaction.tag,
                 note = note ?: transaction.note,
-                status = com.example.financesimply.data.db.entity.TransactionStatus.TAGGED
+                status = TransactionStatus.TAGGED
             )
             transactionDao.update(updated)
         }

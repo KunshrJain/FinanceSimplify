@@ -2,9 +2,8 @@ package com.example.financesimply.ui.screen
 
 import android.content.Intent
 import android.provider.Settings
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,24 +16,21 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Error
-import androidx.compose.material.icons.filled.MonetizationOn
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Store
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -55,9 +51,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.financesimply.data.db.entity.WatchedItemType
 import com.example.financesimply.ui.theme.BudgetSafe
 import com.example.financesimply.ui.viewmodel.FavoriteOutletsViewModel
 import com.example.financesimply.ui.viewmodel.SettingsViewModel
@@ -73,8 +71,9 @@ fun SettingsScreen(
 
     var showBudgetDialog by remember { mutableStateOf(false) }
     var showOutletDialog by remember { mutableStateOf(false) }
-    var showWatchedDialog by remember { mutableStateOf(false) }
     var showPackageDialog by remember { mutableStateOf(false) }
+    var showWatchedItemDialog by remember { mutableStateOf(false) }
+    var showApiKeyDialog by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier
@@ -100,7 +99,7 @@ fun SettingsScreen(
                     BudgetSafe.copy(alpha = 0.1f)
                 else
                     MaterialTheme.colorScheme.errorContainer,
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
                 Row(
                     modifier = Modifier
@@ -239,16 +238,16 @@ fun SettingsScreen(
             }
         }
 
-        // Watched Items section (Addiction tracking)
+        // Watched Items section
         item {
             SettingsSection(
                 title = "Watched Items",
                 actionIcon = Icons.Default.Add,
-                onAction = { showWatchedDialog = true }
+                onAction = { showWatchedItemDialog = true }
             ) {
                 if (settingsState.watchedItems.isEmpty()) {
                     Text(
-                        text = "Track spending patterns for specific categories or merchants",
+                        text = "Track specific categories or merchants to monitor spending patterns",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -263,11 +262,10 @@ fun SettingsScreen(
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
-                                    imageVector = if (item.type == WatchedItemType.CATEGORY)
-                                        Icons.Default.Visibility else Icons.Default.Store,
+                                    Icons.Default.Visibility,
                                     contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.secondary,
-                                    modifier = Modifier.size(20.dp)
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Column {
@@ -283,7 +281,7 @@ fun SettingsScreen(
                                     )
                                 }
                             }
-                            IconButton(onClick = { settingsViewModel.removeWatchedItem(item) }) {
+                            IconButton(onClick = { settingsViewModel.deleteWatchedItem(item) }) {
                                 Icon(
                                     Icons.Default.Delete,
                                     contentDescription = "Delete",
@@ -291,6 +289,7 @@ fun SettingsScreen(
                                 )
                             }
                         }
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                     }
                 }
             }
@@ -325,6 +324,53 @@ fun SettingsScreen(
             }
         }
 
+        // AI / LLM Integration section
+        item {
+            SettingsSection(title = "AI Categorization") {
+                Column {
+                    Text(
+                        text = "Use an LLM API to automatically categorize transactions and extract merchant names with higher accuracy.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.Key,
+                                contentDescription = null,
+                                tint = if (settingsState.llmApiKey.isNotBlank()) BudgetSafe else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (settingsState.llmApiKey.isNotBlank()) "API Key configured" else "No API key set",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = { showApiKeyDialog = true },
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text(if (settingsState.llmApiKey.isNotBlank()) "Change" else "Set Key")
+                        }
+                    }
+                    if (settingsState.llmApiKey.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "⚠ Enabling AI sends transaction descriptions to the API provider. No other data is shared.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
         item {
             Spacer(modifier = Modifier.height(80.dp))
         }
@@ -344,20 +390,12 @@ fun SettingsScreen(
 
     if (showOutletDialog) {
         OutletDialog(
+            existingMerchants = settingsState.existingMerchants,
+            existingCategories = settingsState.categories,
             onDismiss = { showOutletDialog = false },
             onSave = { pattern, name, category ->
                 outletsViewModel.addOutlet(pattern, name, category)
                 showOutletDialog = false
-            }
-        )
-    }
-
-    if (showWatchedDialog) {
-        WatchedItemDialog(
-            onDismiss = { showWatchedDialog = false },
-            onSave = { type, value ->
-                settingsViewModel.addWatchedItem(type, value)
-                showWatchedDialog = false
             }
         )
     }
@@ -371,12 +409,35 @@ fun SettingsScreen(
             }
         )
     }
+
+    if (showWatchedItemDialog) {
+        WatchedItemDialog(
+            existingCategories = settingsState.categories,
+            existingMerchants = settingsState.existingMerchants,
+            onDismiss = { showWatchedItemDialog = false },
+            onSave = { type, value ->
+                settingsViewModel.addWatchedItem(type, value)
+                showWatchedItemDialog = false
+            }
+        )
+    }
+
+    if (showApiKeyDialog) {
+        ApiKeyDialog(
+            currentKey = settingsState.llmApiKey,
+            onDismiss = { showApiKeyDialog = false },
+            onSave = { key ->
+                settingsViewModel.setLlmApiKey(key)
+                showApiKeyDialog = false
+            }
+        )
+    }
 }
 
 @Composable
 private fun SettingsSection(
     title: String,
-    actionIcon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    actionIcon: ImageVector? = null,
     onAction: (() -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
@@ -384,7 +445,7 @@ private fun SettingsSection(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(4.dp),
         color = MaterialTheme.colorScheme.surface,
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -447,6 +508,8 @@ private fun BudgetDialog(
 
 @Composable
 private fun OutletDialog(
+    existingMerchants: List<String>,
+    existingCategories: List<String>,
     onDismiss: () -> Unit,
     onSave: (String, String, String) -> Unit
 ) {
@@ -459,11 +522,37 @@ private fun OutletDialog(
         title = { Text("Add Favorite Outlet") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Show existing merchants as suggestion chips for pattern
+                if (existingMerchants.isNotEmpty()) {
+                    Text(
+                        text = "Pick from your transactions:",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        existingMerchants.take(10).forEach { merchant ->
+                            FilterChip(
+                                selected = pattern == merchant,
+                                onClick = {
+                                    pattern = merchant
+                                    if (name.isBlank()) name = merchant
+                                },
+                                label = { Text(merchant, style = MaterialTheme.typography.labelSmall) }
+                            )
+                        }
+                    }
+                }
+
                 OutlinedTextField(
                     value = pattern,
                     onValueChange = { pattern = it },
-                    label = { Text("Raw merchant pattern") },
-                    placeholder = { Text("e.g. SWIGGY*BLR") },
+                    label = { Text("Merchant pattern") },
+                    placeholder = { Text("e.g. SWIGGY") },
                     shape = RoundedCornerShape(12.dp)
                 )
                 OutlinedTextField(
@@ -480,6 +569,23 @@ private fun OutletDialog(
                     placeholder = { Text("e.g. Food") },
                     shape = RoundedCornerShape(12.dp)
                 )
+                // Category suggestion chips
+                if (existingCategories.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        existingCategories.take(8).forEach { cat ->
+                            FilterChip(
+                                selected = category == cat,
+                                onClick = { category = cat },
+                                label = { Text(cat, style = MaterialTheme.typography.labelSmall) }
+                            )
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
@@ -496,42 +602,84 @@ private fun OutletDialog(
 
 @Composable
 private fun WatchedItemDialog(
+    existingCategories: List<String>,
+    existingMerchants: List<String>,
     onDismiss: () -> Unit,
-    onSave: (WatchedItemType, String) -> Unit
+    onSave: (String, String) -> Unit // type, value
 ) {
-    var value by remember { mutableStateOf("") }
-    var selectedType by remember { mutableStateOf(WatchedItemType.CATEGORY) }
+    var selectedType by remember { mutableStateOf("Category") }
+    var selectedValue by remember { mutableStateOf("") }
+
+    val options = if (selectedType == "Category") existingCategories else existingMerchants
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add Watched Item") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    WatchedItemType.entries.forEach { type ->
-                        FilterChip(
-                            selected = selectedType == type,
-                            onClick = { selectedType = type },
-                            label = {
-                                Text(type.name.lowercase().replaceFirstChar { it.uppercase() })
-                            }
-                        )
-                    }
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "Track spending patterns for a category or merchant",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                // Type selector
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = selectedType == "Category",
+                        onClick = { selectedType = "Category"; selectedValue = "" },
+                        label = { Text("Category") }
+                    )
+                    FilterChip(
+                        selected = selectedType == "Merchant",
+                        onClick = { selectedType = "Merchant"; selectedValue = "" },
+                        label = { Text("Merchant") }
+                    )
                 }
+
+                // Value picker from existing data
+                if (options.isNotEmpty()) {
+                    Text(
+                        text = "Select from existing ${selectedType.lowercase()}s:",
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        options.take(12).forEach { option ->
+                            FilterChip(
+                                selected = selectedValue == option,
+                                onClick = { selectedValue = option },
+                                label = { Text(option) },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                } else {
+                    Text(
+                        text = "No ${selectedType.lowercase()}s found. Add some transactions first.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                // Manual entry fallback
                 OutlinedTextField(
-                    value = value,
-                    onValueChange = { value = it },
-                    label = { Text(if (selectedType == WatchedItemType.CATEGORY) "Category name" else "Merchant name") },
-                    placeholder = { Text(if (selectedType == WatchedItemType.CATEGORY) "e.g. Food" else "e.g. Swiggy") },
-                    shape = RoundedCornerShape(12.dp)
+                    value = selectedValue,
+                    onValueChange = { selectedValue = it },
+                    label = { Text("Or type a ${selectedType.lowercase()} name") },
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         },
         confirmButton = {
             Button(
-                onClick = { if (value.isNotBlank()) onSave(selectedType, value) },
-                enabled = value.isNotBlank()
-            ) { Text("Save") }
+                onClick = { if (selectedValue.isNotBlank()) onSave(selectedType.uppercase(), selectedValue) },
+                enabled = selectedValue.isNotBlank()
+            ) { Text("Add") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
@@ -563,6 +711,60 @@ private fun PackageDialog(
                 onClick = { if (packageName.isNotBlank()) onSave(packageName) },
                 enabled = packageName.isNotBlank()
             ) { Text("Add") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+private fun ApiKeyDialog(
+    currentKey: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit
+) {
+    var apiKey by remember { mutableStateOf(currentKey) }
+    var showKey by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Set AI API Key") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Enter your OpenAI or Gemini API key for smart transaction categorization.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = apiKey,
+                    onValueChange = { apiKey = it },
+                    label = { Text("API Key") },
+                    placeholder = { Text("sk-...") },
+                    shape = RoundedCornerShape(12.dp),
+                    visualTransformation = if (showKey) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { showKey = !showKey }) {
+                            Icon(
+                                if (showKey) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = if (showKey) "Hide" else "Show"
+                            )
+                        }
+                    },
+                    singleLine = true
+                )
+                Text(
+                    text = "⚠ The key is stored locally on your device. Transaction descriptions will be sent to the API for categorization.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onSave(apiKey) }) { 
+                Text(if (apiKey.isNotBlank()) "Save" else "Clear") 
+            }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }

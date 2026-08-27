@@ -23,6 +23,7 @@ class UserPreferences(private val context: Context) {
         private val WHITELISTED_PACKAGES = stringSetPreferencesKey("whitelisted_packages")
         private val CATEGORIES = stringPreferencesKey("categories_json")
         private val LAST_BUDGET_THRESHOLD_NOTIFIED = longPreferencesKey("last_budget_threshold_notified")
+        private val LLM_API_KEY = stringPreferencesKey("llm_api_key")
 
         val DEFAULT_PACKAGES = setOf(
             "com.google.android.apps.nbu.paisa.user", // GPay
@@ -118,5 +119,16 @@ class UserPreferences(private val context: Context) {
 
     suspend fun getWhitelistedPackagesSync(): Set<String> {
         return context.dataStore.data.first()[WHITELISTED_PACKAGES] ?: DEFAULT_PACKAGES
+    }
+
+    // LLM API key
+    val llmApiKey: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[LLM_API_KEY] ?: ""
+    }
+
+    suspend fun setLlmApiKey(key: String) {
+        context.dataStore.edit { prefs ->
+            prefs[LLM_API_KEY] = key
+        }
     }
 }

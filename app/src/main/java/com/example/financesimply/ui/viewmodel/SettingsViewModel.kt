@@ -14,16 +14,19 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 data class SettingsUiState(
     val budget: Long = 30000L,
     val whitelistedPackages: Set<String> = emptySet(),
-    val watchedItems: List<WatchedItemEntity> = emptyList(),
     val categories: List<String> = emptyList(),
     val isNotificationAccessGranted: Boolean = false,
     val onboardingCompleted: Boolean = true,
-    val isLoading: Boolean = true
+    val isLoading: Boolean = true,
+    val watchedItems: List<WatchedItemEntity> = emptyList(),
+    val existingMerchants: List<String> = emptyList(),
+    val llmApiKey: String = ""
 )
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
@@ -31,6 +34,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val database = SpendSenseDatabase.getInstance(application)
     private val userPreferences = UserPreferences(application)
     private val watchedItemDao = database.watchedItemDao()
+    private val transactionDao = database.transactionDao()
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
@@ -44,18 +48,40 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             combine(
                 userPreferences.monthlyBudget,
                 userPreferences.whitelistedPackages,
-                watchedItemDao.getAll(),
                 userPreferences.categories,
-                userPreferences.onboardingCompleted
-            ) { budget, packages, watched, categories, onboarded ->
+                userPreferences.onboardingCompleted,
+                watchedItemDao.getAll(),
+                transactionDao.getAllMerchantNames(),
+                transactionDao.getAllCategories(),
+                userPreferences.llmApiKey
+            ) { args ->
+                @Suppress("UNCHECKED_CAST")
+                val budget = args[0] as Long
+                @Suppress("UNCHECKED_CAST")
+                val packages = args[1] as Set<String>
+                @Suppress("UNCHECKED_CAST")
+                val categories = args[2] as List<String>
+                val onboarded = args[3] as Boolean
+                @Suppress("UNCHECKED_CAST")
+                val watchedItems = args[4] as List<WatchedItemEntity>
+                @Suppress("UNCHECKED_CAST")
+                val merchants = args[5] as List<String>
+                @Suppress("UNCHECKED_CAST")
+                val dbCategories = args[6] as List<String>
+                val apiKey = args[7] as String
+
+                val allCategories = (categories + dbCategories).distinct().sorted()
+
                 SettingsUiState(
                     budget = budget,
                     whitelistedPackages = packages,
-                    watchedItems = watched,
-                    categories = categories,
+                    categories = allCategories,
                     isNotificationAccessGranted = checkNotificationAccess(),
                     onboardingCompleted = onboarded,
-                    isLoading = false
+                    isLoading = false,
+                    watchedItems = watchedItems,
+                    existingMerchants = merchants,
+                    llmApiKey = apiKey
                 )
             }.collect { state ->
                 _uiState.value = state
@@ -81,21 +107,32 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun addWatchedItem(type: WatchedItemType, value: String) {
+    fun setOnboardingCompleted() {
         viewModelScope.launch {
+            userPreferences.setOnboardingCompleted(true)
+        }
+    }
+
+    fun addWatchedItem(typeStr: String, value: String) {
+        viewModelScope.launch {
+            val type = when (typeStr.uppercase()) {
+                "CATEGORY" -> WatchedItemType.CATEGORY
+                "MERCHANT" -> WatchedItemType.MERCHANT
+                else -> WatchedItemType.CATEGORY
+            }
             watchedItemDao.insert(WatchedItemEntity(type = type, value = value))
         }
     }
 
-    fun removeWatchedItem(item: WatchedItemEntity) {
+    fun deleteWatchedItem(item: WatchedItemEntity) {
         viewModelScope.launch {
             watchedItemDao.delete(item)
         }
     }
 
-    fun setOnboardingCompleted() {
+    fun setLlmApiKey(key: String) {
         viewModelScope.launch {
-            userPreferences.setOnboardingCompleted(true)
+            userPreferences.setLlmApiKey(key)
         }
     }
 

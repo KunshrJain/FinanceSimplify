@@ -1,8 +1,6 @@
 package com.example.financesimply.ui.screen
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,16 +13,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -85,15 +82,29 @@ fun TransactionsScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Filter chips
+        // Filter chips — horizontally scrollable
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             FilterChip(
                 selected = state.filter == TransactionFilter.ALL,
                 onClick = { viewModel.setFilter(TransactionFilter.ALL) },
                 label = { Text("All") },
+                shape = RoundedCornerShape(12.dp)
+            )
+            FilterChip(
+                selected = state.filter == TransactionFilter.DEBIT_ONLY,
+                onClick = { viewModel.setFilter(TransactionFilter.DEBIT_ONLY) },
+                label = { Text("Debits") },
+                shape = RoundedCornerShape(12.dp)
+            )
+            FilterChip(
+                selected = state.filter == TransactionFilter.CREDIT_ONLY,
+                onClick = { viewModel.setFilter(TransactionFilter.CREDIT_ONLY) },
+                label = { Text("Credits") },
                 shape = RoundedCornerShape(12.dp)
             )
             FilterChip(
@@ -110,6 +121,18 @@ fun TransactionsScreen(
                 selected = state.filter == TransactionFilter.SPLIT,
                 onClick = { viewModel.setFilter(TransactionFilter.SPLIT) },
                 label = { Text("Splits") },
+                shape = RoundedCornerShape(12.dp)
+            )
+            FilterChip(
+                selected = state.filter == TransactionFilter.EXEMPT,
+                onClick = { viewModel.setFilter(TransactionFilter.EXEMPT) },
+                label = { Text("Exempt") },
+                shape = RoundedCornerShape(12.dp)
+            )
+            FilterChip(
+                selected = state.filter == TransactionFilter.OWED,
+                onClick = { viewModel.setFilter(TransactionFilter.OWED) },
+                label = { Text("Owed") },
                 shape = RoundedCornerShape(12.dp)
             )
         }

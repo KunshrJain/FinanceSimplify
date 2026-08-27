@@ -66,12 +66,19 @@ interface TransactionDao {
     fun getCategoryBreakdown(startTime: Long, endTime: Long): Flow<List<CategoryTotal>>
 
     @Query("""
-        SELECT merchantFriendly as merchant, SUM(budgetImpactAmount) as total, COUNT(*) as count 
+        SELECT 
+            CASE 
+                WHEN merchantFriendly != '' THEN merchantFriendly 
+                WHEN merchantRaw != '' THEN merchantRaw 
+                ELSE 'Unknown' 
+            END as merchant, 
+            SUM(budgetImpactAmount) as total, 
+            COUNT(*) as count 
         FROM transactions 
         WHERE transactionType = 'DEBIT' 
         AND timestamp BETWEEN :startTime AND :endTime 
-        AND merchantFriendly != '' 
-        GROUP BY merchantFriendly 
+        AND (merchantFriendly != '' OR merchantRaw != '') 
+        GROUP BY merchant 
         ORDER BY total DESC 
         LIMIT 10
     """)
@@ -130,6 +137,19 @@ interface TransactionDao {
 
     @Query("SELECT * FROM transactions WHERE splitDetails IS NOT NULL")
     fun getTransactionsWithSplits(): Flow<List<TransactionEntity>>
+
+    @Query("""
+        SELECT DISTINCT 
+            CASE 
+                WHEN merchantFriendly != '' THEN merchantFriendly 
+                WHEN merchantRaw != '' THEN merchantRaw 
+                ELSE NULL 
+            END as merchant 
+        FROM transactions 
+        WHERE merchant IS NOT NULL 
+        ORDER BY merchant ASC
+    """)
+    fun getAllMerchantNames(): Flow<List<String>>
 }
 
 data class CategoryTotal(
@@ -147,3 +167,4 @@ data class DailySpend(
     val day: String,
     val total: Double
 )
+

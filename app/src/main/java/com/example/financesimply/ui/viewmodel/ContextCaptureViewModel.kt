@@ -4,7 +4,9 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.financesimply.data.db.SpendSenseDatabase
+import com.example.financesimply.data.db.entity.SplitParticipant
 import com.example.financesimply.data.db.entity.TransactionEntity
+import com.example.financesimply.data.db.entity.TransactionStatus
 import com.example.financesimply.data.preferences.UserPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,8 +19,9 @@ data class ContextCaptureUiState(
     val categoryInput: String = "",
     val tagInput: String = "",
     val noteInput: String = "",
+    val isExemptFromBudget: Boolean = false,
     val isSplit: Boolean = false,
-    val splitParticipants: List<com.example.financesimply.data.db.entity.SplitParticipant> = emptyList(),
+    val splitParticipants: List<SplitParticipant> = emptyList(),
     val categorySuggestions: List<String> = emptyList(),
     val tagSuggestions: List<String> = emptyList(),
     val isVisible: Boolean = false
@@ -58,6 +61,7 @@ class ContextCaptureViewModel(application: Application) : AndroidViewModel(appli
                 transaction = transaction,
                 categoryInput = transaction.category,
                 tagInput = transaction.tag,
+                isExemptFromBudget = transaction.isExemptFromBudget || (transaction.budgetImpactAmount == 0.0 && transaction.amount > 0.0),
                 isSplit = transaction.splitDetails != null,
                 splitParticipants = transaction.splitDetails ?: emptyList(),
                 categorySuggestions = categories,
@@ -79,6 +83,10 @@ class ContextCaptureViewModel(application: Application) : AndroidViewModel(appli
         _uiState.value = _uiState.value.copy(noteInput = note)
     }
 
+    fun updateExemptFromBudget(exempt: Boolean) {
+        _uiState.value = _uiState.value.copy(isExemptFromBudget = exempt)
+    }
+
     fun updateIsSplit(value: Boolean) {
         _uiState.value = _uiState.value.copy(isSplit = value)
         if (value && _uiState.value.splitParticipants.isEmpty()) {
@@ -88,7 +96,7 @@ class ContextCaptureViewModel(application: Application) : AndroidViewModel(appli
 
     fun addParticipant(name: String) {
         val current = _uiState.value.splitParticipants.toMutableList()
-        current.add(com.example.financesimply.data.db.entity.SplitParticipant(name, 0.0))
+        current.add(SplitParticipant(name, 0.0))
         _uiState.value = _uiState.value.copy(splitParticipants = current)
     }
 
@@ -138,10 +146,10 @@ class ContextCaptureViewModel(application: Application) : AndroidViewModel(appli
         val transaction = state.transaction ?: return
 
         viewModelScope.launch {
-            val budgetImpact = if (state.isSplit) {
-                transaction.amount - state.splitParticipants.sumOf { it.amountOwed }
-            } else {
-                transaction.amount
+            val budgetImpact = when {
+                state.isExemptFromBudget -> 0.0
+                state.isSplit -> transaction.amount - state.splitParticipants.sumOf { it.amountOwed }
+                else -> transaction.amount
             }
 
             val updated = transaction.copy(
@@ -149,8 +157,9 @@ class ContextCaptureViewModel(application: Application) : AndroidViewModel(appli
                 tag = state.tagInput,
                 note = state.noteInput,
                 budgetImpactAmount = budgetImpact,
+                isExemptFromBudget = state.isExemptFromBudget,
                 splitDetails = if (state.isSplit && state.splitParticipants.isNotEmpty()) state.splitParticipants else null,
-                status = com.example.financesimply.data.db.entity.TransactionStatus.TAGGED
+                status = TransactionStatus.TAGGED
             )
             transactionDao.update(updated)
             dismiss()

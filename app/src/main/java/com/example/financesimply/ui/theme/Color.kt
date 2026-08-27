@@ -2,28 +2,32 @@ package com.example.financesimply.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Minimalist B&W palette
+// ── Pure B&W Palette ──
 val PureBlack = Color(0xFF000000)
-val SurfaceDark = Color(0xFF1E1E24) // Deep charcoal
-val SurfaceVariantDark = Color(0xFF2C2C35) // Slightly lighter charcoal for cards
+val SurfaceDark = Color(0xFF111111)       // Near-black for cards
+val SurfaceVariantDark = Color(0xFF1A1A1A) // Slightly lighter for nested elements
 val PureWhite = Color(0xFFFFFFFF)
-val TextGray = Color(0xFFA0A0AB)
-val DividerGray = Color(0xFF383842)
+val TextGray = Color(0xFF999999)           // Secondary text
+val DividerGray = Color(0xFF333333)        // Borders / dividers
 
-// Premium Accents
-val PrimaryAccent = Color(0xFF6366F1) // Indigo 500
-val PrimaryAccentVariant = Color(0xFF818CF8) // Indigo 400
+// Primary accent — white in dark mode, black in light mode (defined in Theme.kt)
+val PrimaryAccent = Color(0xFFFFFFFF)
+val PrimaryAccentVariant = Color(0xFFCCCCCC)
 
-// Chart colors (monochrome variants)
+// Chart colors (grayscale gradient)
 val ChartColors = listOf(
-    Color(0xFF6366F1), // Indigo 500
-    Color(0xFF818CF8), // Indigo 400
-    Color(0xFFA5B4FC), // Indigo 300
-    Color(0xFFC7D2FE), // Indigo 200
+    Color(0xFFFFFFFF), // White
+    Color(0xFFBBBBBB), // Light gray
+    Color(0xFF888888), // Mid gray
+    Color(0xFF555555), // Dark gray
 )
 
-// Budget progress colors (minimalist)
-val BudgetSafe = Color(0xFF10B981) // Emerald 500
-val BudgetWarning = Color(0xFFF59E0B) // Amber 500
-val BudgetDanger = Color(0xFFEF4444) // Red 500
-val BudgetOver = Color(0xFFB91C1C) // Deep Red
+// Budget progress colors (semantic — kept for functional meaning)
+val BudgetSafe = Color(0xFF10B981)    // Green — under budget
+val BudgetWarning = Color(0xFFF59E0B) // Amber — approaching limit
+val BudgetDanger = Color(0xFFEF4444)  // Red — near/at limit
+val BudgetOver = Color(0xFFB91C1C)    // Deep red — over budget
+
+// Credit/Debit functional colors
+val CreditGreen = Color(0xFF10B981)
+val DebitWhite = Color(0xFFFFFFFF)

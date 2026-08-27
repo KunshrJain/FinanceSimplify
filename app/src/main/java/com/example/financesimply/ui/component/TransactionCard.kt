@@ -1,7 +1,6 @@
 package com.example.financesimply.ui.component
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,14 +15,13 @@ import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.automirrored.filled.LabelOff
-import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.CallSplit
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -31,8 +29,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.financesimply.data.db.entity.TransactionEntity
 import com.example.financesimply.data.db.entity.TransactionType
-import com.example.financesimply.ui.theme.BudgetSafe
-import com.example.financesimply.ui.theme.PureBlack
+import com.example.financesimply.ui.theme.CreditGreen
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -44,21 +41,19 @@ fun TransactionCard(
     modifier: Modifier = Modifier
 ) {
     val isDebit = transaction.transactionType == TransactionType.DEBIT
-    val amountColor by animateColorAsState(
-        targetValue = PureBlack,
-        animationSpec = tween(300),
-        label = "amountColor"
-    )
+    val amountColor = if (isDebit) {
+        MaterialTheme.colorScheme.onSurface
+    } else {
+        CreditGreen
+    }
 
     Surface(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(4.dp),
         color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 2.dp,
-        shadowElevation = 4.dp
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
-        Column {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -73,15 +68,15 @@ fun TransactionCard(
             ) {
                 // Transaction type icon
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = amountColor.copy(alpha = 0.15f),
-                    modifier = Modifier.size(44.dp)
+                    shape = RoundedCornerShape(4.dp),
+                    color = amountColor.copy(alpha = 0.1f),
+                    modifier = Modifier.size(40.dp)
                 ) {
                     Icon(
                         imageVector = if (isDebit) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
                         contentDescription = if (isDebit) "Debit" else "Credit",
                         tint = amountColor,
-                        modifier = Modifier.padding(10.dp)
+                        modifier = Modifier.padding(8.dp)
                     )
                 }
 
@@ -107,12 +102,12 @@ fun TransactionCard(
                                 imageVector = Icons.AutoMirrored.Filled.Label,
                                 contentDescription = null,
                                 modifier = Modifier.size(12.dp),
-                                tint = MaterialTheme.colorScheme.primary
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
                                 text = transaction.category,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         } else {
                             Icon(
@@ -144,16 +139,29 @@ fun TransactionCard(
                                 imageVector = Icons.Default.CallSplit,
                                 contentDescription = "Split bill",
                                 modifier = Modifier.size(12.dp),
-                                tint = MaterialTheme.colorScheme.secondary
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             val unsettledCount = transaction.splitDetails.count { !it.isSettled }
                             if (unsettledCount > 0) {
                                 Text(
                                     text = "$unsettledCount to settle",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.secondary
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
+                        }
+                        if (transaction.isExemptFromBudget || (transaction.budgetImpactAmount == 0.0 && transaction.amount > 0.0 && transaction.transactionType == TransactionType.DEBIT)) {
+                            Icon(
+                                imageVector = Icons.Default.Shield,
+                                contentDescription = "Exempt from budget",
+                                modifier = Modifier.size(12.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = "Exempt",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
                         }
                     }
                 }
@@ -175,7 +183,6 @@ fun TransactionCard(
                     )
                 }
             }
-        }
         }
     }
 }

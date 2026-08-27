@@ -18,7 +18,7 @@ import com.example.financesimply.data.db.entity.WatchedItemEntity
         FavoriteOutletEntity::class,
         WatchedItemEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 @TypeConverters(com.example.financesimply.data.db.entity.Converters::class)

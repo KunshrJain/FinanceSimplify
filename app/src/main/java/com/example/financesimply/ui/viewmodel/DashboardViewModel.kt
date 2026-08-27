@@ -7,6 +7,7 @@ import com.example.financesimply.data.db.SpendSenseDatabase
 import com.example.financesimply.data.db.dao.CategoryTotal
 import com.example.financesimply.data.db.dao.DailySpend
 import com.example.financesimply.data.db.dao.MerchantTotal
+import com.example.financesimply.data.db.entity.TransactionEntity
 import com.example.financesimply.data.preferences.UserPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -16,6 +17,12 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.Calendar
+
+data class PersonOwed(
+    val name: String,
+    val totalOwed: Double,
+    val transactionCount: Int
+)
 
 data class DashboardUiState(
     val monthlyTotal: Double = 0.0,
@@ -30,6 +37,7 @@ data class DashboardUiState(
     val topOutlets: List<MerchantTotal> = emptyList(),
     val dailySpendTrend: List<DailySpend> = emptyList(),
     val owedToYou: Double = 0.0,
+    val owedByPerson: List<PersonOwed> = emptyList(),
     val isLoading: Boolean = true
 )
 
@@ -90,21 +98,38 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 @Suppress("UNCHECKED_CAST")
                 val trend = args[5] as List<DailySpend>
                 @Suppress("UNCHECKED_CAST")
-                val splits = args[6] as List<com.example.financesimply.data.db.entity.TransactionEntity>
+                val splits = args[6] as List<TransactionEntity>
                 
                 val remaining = budget - total
                 val dailyAvg = if (daysPassed > 0) total / daysPassed else 0.0
                 val projected = dailyAvg * totalDaysInMonth
                 val projectedOverspend = (projected - budget).coerceAtLeast(0.0)
 
+                // Compute per-person owed breakdown
                 var totalOwed = 0.0
+                val personMap = mutableMapOf<String, Pair<Double, Int>>()
+                
                 splits.forEach { txn ->
                     txn.splitDetails?.forEach { participant ->
                         if (!participant.isSettled) {
                             totalOwed += participant.amountOwed
+                            val name = participant.name.ifBlank { "Unknown" }
+                            val existing = personMap[name] ?: Pair(0.0, 0)
+                            personMap[name] = Pair(
+                                existing.first + participant.amountOwed,
+                                existing.second + 1
+                            )
                         }
                     }
                 }
+
+                val owedByPerson = personMap.map { (name, pair) ->
+                    PersonOwed(
+                        name = name,
+                        totalOwed = pair.first,
+                        transactionCount = pair.second
+                    )
+                }.sortedByDescending { it.totalOwed }
 
                 DashboardUiState(
                     monthlyTotal = total,
@@ -119,6 +144,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     topOutlets = outlets,
                     dailySpendTrend = trend,
                     owedToYou = totalOwed,
+                    owedByPerson = owedByPerson,
                     isLoading = false
                 )
             }.stateIn(
@@ -127,6 +153,30 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 DashboardUiState()
             ).collect { state ->
                 _uiState.value = state
+            }
+        }
+    }
+
+    /**
+     * Settle a specific person's debt across all unsettled splits.
+     */
+    fun settlePersonDebt(personName: String) {
+        viewModelScope.launch {
+            val splits = transactionDao.getTransactionsWithSplits()
+            splits.collect { transactions ->
+                transactions.forEach { txn ->
+                    val updatedParticipants = txn.splitDetails?.map { participant ->
+                        if (participant.name == personName && !participant.isSettled) {
+                            participant.copy(isSettled = true)
+                        } else {
+                            participant
+                        }
+                    }
+                    if (updatedParticipants != txn.splitDetails) {
+                        transactionDao.update(txn.copy(splitDetails = updatedParticipants))
+                    }
+                }
+                return@collect
             }
         }
     }

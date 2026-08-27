@@ -1,8 +1,6 @@
 package com.example.financesimply.ui.screen
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,16 +13,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,14 +33,17 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.financesimply.ui.component.BudgetProgressBar
 import com.example.financesimply.ui.theme.BudgetDanger
 import com.example.financesimply.ui.theme.BudgetSafe
 import com.example.financesimply.ui.theme.ChartColors
+import com.example.financesimply.ui.theme.CreditGreen
 import com.example.financesimply.ui.viewmodel.DashboardViewModel
 
 @Composable
@@ -50,7 +54,7 @@ fun DashboardScreen(
 
     if (state.isLoading) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+            CircularProgressIndicator(color = MaterialTheme.colorScheme.onBackground)
         }
         return
     }
@@ -92,7 +96,7 @@ fun DashboardScreen(
                     text = "₹${formatCompact(state.monthlyIncome)}",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = com.example.financesimply.ui.theme.BudgetSafe
+                    color = CreditGreen
                 )
             }
         }
@@ -114,14 +118,14 @@ fun DashboardScreen(
                         text = "₹${formatCompact(state.owedToYou)}",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
         }
 
         item {
-            androidx.compose.material3.HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
+            HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
         }
 
         // Budget progress
@@ -150,7 +154,7 @@ fun DashboardScreen(
                     icon = Icons.Default.CalendarMonth,
                     label = "Days Left",
                     value = "${state.daysLeftInMonth}",
-                    color = MaterialTheme.colorScheme.secondary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
         }
@@ -165,7 +169,7 @@ fun DashboardScreen(
                     icon = Icons.Default.Speed,
                     label = "Daily Avg",
                     value = "₹${formatCompact(state.dailyAverage)}",
-                    color = MaterialTheme.colorScheme.tertiary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 StatCard(
                     modifier = Modifier.weight(1f),
@@ -177,15 +181,106 @@ fun DashboardScreen(
             }
         }
 
+        // Owed by person breakdown
+        if (state.owedByPerson.isNotEmpty()) {
+            item {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(4.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(
+                            text = "Who Owes You",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        state.owedByPerson.forEach { person ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = MaterialTheme.colorScheme.primaryContainer,
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                Icons.Default.Person,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column {
+                                        Text(
+                                            text = person.name,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Medium,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = "${person.transactionCount} split${if (person.transactionCount > 1) "s" else ""}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        text = "₹${formatCompact(person.totalOwed)}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    OutlinedButton(
+                                        onClick = { viewModel.settlePersonDebt(person.name) },
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.CheckCircle,
+                                            contentDescription = "Settle",
+                                            modifier = Modifier.size(16.dp),
+                                            tint = CreditGreen
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            "Settle",
+                                            style = MaterialTheme.typography.labelSmall
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Category breakdown
         if (state.categoryBreakdown.isNotEmpty()) {
             item {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(4.dp),
                     color = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 2.dp,
-                    shadowElevation = 4.dp
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Text(
@@ -210,7 +305,7 @@ fun DashboardScreen(
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Surface(
-                                        shape = RoundedCornerShape(4.dp),
+                                        shape = RoundedCornerShape(2.dp),
                                         color = color,
                                         modifier = Modifier.size(12.dp)
                                     ) {}
@@ -263,15 +358,14 @@ fun DashboardScreen(
             }
         }
 
-        // Top outlets
+        // Top outlets — FIXED: text overflow for long UPI IDs
         if (state.topOutlets.isNotEmpty()) {
             item {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(4.dp),
                     color = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 2.dp,
-                    shadowElevation = 4.dp
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Text(
@@ -289,10 +383,13 @@ fun DashboardScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
                                     Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = ChartColors[index % ChartColors.size].copy(alpha = 0.15f),
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = MaterialTheme.colorScheme.surfaceVariant,
                                         modifier = Modifier.size(36.dp)
                                     ) {
                                         Box(contentAlignment = Alignment.Center) {
@@ -300,16 +397,18 @@ fun DashboardScreen(
                                                 text = "${index + 1}",
                                                 style = MaterialTheme.typography.labelLarge,
                                                 fontWeight = FontWeight.Bold,
-                                                color = ChartColors[index % ChartColors.size]
+                                                color = MaterialTheme.colorScheme.onSurface
                                             )
                                         }
                                     }
                                     Spacer(modifier = Modifier.width(12.dp))
-                                    Column {
+                                    Column(modifier = Modifier.weight(1f)) {
                                         Text(
                                             text = outlet.merchant,
                                             style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.Medium
+                                            fontWeight = FontWeight.Medium,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                         Text(
                                             text = "${outlet.count} transactions",
@@ -318,6 +417,7 @@ fun DashboardScreen(
                                         )
                                     }
                                 }
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = "₹${formatCompact(outlet.total)}",
                                     style = MaterialTheme.typography.bodyMedium,
@@ -343,14 +443,13 @@ private fun StatCard(
     icon: ImageVector,
     label: String,
     value: String,
-    color: androidx.compose.ui.graphics.Color
+    color: Color
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(4.dp),
         color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 2.dp,
-        shadowElevation = 4.dp
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Icon(

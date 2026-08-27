@@ -1,5 +1,6 @@
 package com.example.financesimply.ui.screen
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -88,12 +89,12 @@ fun AddictionScreen(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "No watched items",
+                        text = "No insights yet",
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "Add categories or merchants to watch\nin Settings → Watched Items",
+                        text = "Insights will automatically generate once you have enough transactions.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         textAlign = TextAlign.Center
@@ -121,7 +122,7 @@ private fun WatchedItemCard(stats: WatchedItemStats) {
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(4.dp),
         color = MaterialTheme.colorScheme.surface,
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // Header
@@ -134,18 +135,18 @@ private fun WatchedItemCard(stats: WatchedItemStats) {
                     Icon(
                         imageVector = Icons.Default.Visibility,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Column {
                         Text(
-                            text = stats.item.value,
+                            text = stats.name,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            text = stats.item.type.name.lowercase().replaceFirstChar { it.uppercase() },
+                            text = stats.type,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -187,7 +188,7 @@ private fun WatchedItemCard(stats: WatchedItemStats) {
                     Text(
                         text = "₹${"%,.0f".format(stats.spend7Day)}",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
 
