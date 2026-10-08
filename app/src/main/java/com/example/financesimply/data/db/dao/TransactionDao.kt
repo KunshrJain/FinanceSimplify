@@ -1,155 +1,76 @@
 package com.example.financesimply.data.db.dao
 
-import androidx.room.Dao
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
-import androidx.room.Query
-import androidx.room.Update
 import com.example.financesimply.data.db.entity.TransactionEntity
+import com.example.financesimply.data.remote.SupabaseClient as S
 import kotlinx.coroutines.flow.Flow
 
-@Dao
-interface TransactionDao {
+/** Supabase-backed replacement for the former Room DAO (same method names and signatures). */
+class TransactionDao {
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(transaction: TransactionEntity): Long
+    private fun range(s: Long, e: Long) = mapOf("p_start" to s, "p_end" to e)
+    private fun item(v: String, s: Long, e: Long) = mapOf("p_value" to v, "p_start" to s, "p_end" to e)
+    private suspend fun list(q: String) = S.getList<TransactionEntity>("v_android_txn?$q")
 
-    @Update
-    suspend fun update(transaction: TransactionEntity)
+    /** Returns -1 when the write could not reach Supabase. */
+    suspend fun insert(transaction: TransactionEntity): Long = S.safe(-1L) {
+        S.rpc("upsert_transaction", mapOf("p" to transaction), notify = true).trim().toLong()
+    }
 
-    @Query("SELECT * FROM transactions ORDER BY timestamp DESC")
-    fun getAll(): Flow<List<TransactionEntity>>
+    suspend fun update(transaction: TransactionEntity) { insert(transaction) }
 
-    @Query("SELECT * FROM transactions WHERE id = :id")
-    suspend fun getById(id: Long): TransactionEntity?
+    fun getAll(): Flow<List<TransactionEntity>> = S.watch { list("order=timestamp.desc") }
 
-    @Query("SELECT * FROM transactions WHERE timestamp BETWEEN :startTime AND :endTime ORDER BY timestamp DESC")
-    fun getByDateRange(startTime: Long, endTime: Long): Flow<List<TransactionEntity>>
+    suspend fun getById(id: Long): TransactionEntity? = S.safe(null) { list("id=eq.$id&limit=1").firstOrNull() }
 
-    @Query("SELECT * FROM transactions WHERE status = 'PENDING' ORDER BY timestamp DESC")
-    fun getPending(): Flow<List<TransactionEntity>>
+    fun getByDateRange(startTime: Long, endTime: Long): Flow<List<TransactionEntity>> =
+        S.watch { list("timestamp=gte.$startTime&timestamp=lte.$endTime&order=timestamp.desc") }
 
-    @Query("SELECT COUNT(*) FROM transactions WHERE status = 'PENDING'")
-    suspend fun getPendingCount(): Int
+    fun getPending(): Flow<List<TransactionEntity>> = S.watch { list("status=eq.PENDING&order=timestamp.desc") }
 
-    @Query("""
-        SELECT COALESCE(SUM(amount), 0.0) FROM transactions 
-        WHERE transactionType = 'CREDIT' 
-        AND status != 'DISMISSED'
-        AND timestamp BETWEEN :startTime AND :endTime
-    """)
-    fun getMonthlyIncome(startTime: Long, endTime: Long): Flow<Double>
+    suspend fun getPendingCount(): Int = S.safe(0) { list("status=eq.PENDING&select=id").size }
 
+    fun getMonthlyIncome(startTime: Long, endTime: Long): Flow<Double> =
+        S.watch { S.rpc("monthly_income", range(startTime, endTime)).trim().toDouble() }
 
-    @Query("""
-        SELECT COALESCE(SUM(budgetImpactAmount), 0.0) FROM transactions 
-        WHERE transactionType = 'DEBIT' 
-        AND timestamp BETWEEN :startTime AND :endTime
-    """)
-    fun getMonthlyTotal(startTime: Long, endTime: Long): Flow<Double>
+    fun getMonthlyTotal(startTime: Long, endTime: Long): Flow<Double> =
+        S.watch { getMonthlyTotalSync(startTime, endTime) }
 
-    @Query("""
-        SELECT COALESCE(SUM(budgetImpactAmount), 0.0) FROM transactions 
-        WHERE transactionType = 'DEBIT' 
-        AND timestamp BETWEEN :startTime AND :endTime
-    """)
-    suspend fun getMonthlyTotalSync(startTime: Long, endTime: Long): Double
+    suspend fun getMonthlyTotalSync(startTime: Long, endTime: Long): Double = S.safe(0.0) {
+        S.rpc("monthly_total", range(startTime, endTime)).trim().toDouble()
+    }
 
-    @Query("""
-        SELECT category, SUM(budgetImpactAmount) as total FROM transactions 
-        WHERE transactionType = 'DEBIT' 
-        AND timestamp BETWEEN :startTime AND :endTime 
-        AND category != '' 
-        GROUP BY category 
-        ORDER BY total DESC
-    """)
-    fun getCategoryBreakdown(startTime: Long, endTime: Long): Flow<List<CategoryTotal>>
+    fun getCategoryBreakdown(startTime: Long, endTime: Long): Flow<List<CategoryTotal>> =
+        S.watch { S.rpcList<CategoryTotal>("category_breakdown", range(startTime, endTime)) }
 
-    @Query("""
-        SELECT 
-            CASE 
-                WHEN merchantFriendly != '' THEN merchantFriendly 
-                WHEN merchantRaw != '' THEN merchantRaw 
-                ELSE 'Unknown' 
-            END as merchant, 
-            SUM(budgetImpactAmount) as total, 
-            COUNT(*) as count 
-        FROM transactions 
-        WHERE transactionType = 'DEBIT' 
-        AND timestamp BETWEEN :startTime AND :endTime 
-        AND (merchantFriendly != '' OR merchantRaw != '') 
-        GROUP BY merchant 
-        ORDER BY total DESC 
-        LIMIT 10
-    """)
-    fun getTopOutlets(startTime: Long, endTime: Long): Flow<List<MerchantTotal>>
+    fun getTopOutlets(startTime: Long, endTime: Long): Flow<List<MerchantTotal>> =
+        S.watch { S.rpcList<MerchantTotal>("top_outlets", range(startTime, endTime)) }
 
-    @Query("""
-        SELECT * FROM transactions 
-        WHERE (merchantFriendly = :value OR merchantRaw LIKE '%' || :value || '%' OR category = :value) 
-        AND timestamp BETWEEN :startTime AND :endTime 
-        ORDER BY timestamp DESC
-    """)
-    fun getByMerchantOrCategory(value: String, startTime: Long, endTime: Long): Flow<List<TransactionEntity>>
+    fun getByMerchantOrCategory(value: String, startTime: Long, endTime: Long): Flow<List<TransactionEntity>> =
+        S.watch { S.rpcList<TransactionEntity>("txn_by_item", item(value, startTime, endTime)) }
 
-    @Query("""
-        SELECT COUNT(*) FROM transactions 
-        WHERE (merchantFriendly = :value OR merchantRaw LIKE '%' || :value || '%' OR category = :value) 
-        AND transactionType = 'DEBIT'
-        AND timestamp BETWEEN :startTime AND :endTime
-    """)
-    suspend fun getFrequencyForItem(value: String, startTime: Long, endTime: Long): Int
+    suspend fun getFrequencyForItem(value: String, startTime: Long, endTime: Long): Int = S.safe(0) {
+        S.rpc("frequency_for_item", item(value, startTime, endTime)).trim().toInt()
+    }
 
-    @Query("""
-        SELECT COALESCE(SUM(budgetImpactAmount), 0.0) FROM transactions 
-        WHERE (merchantFriendly = :value OR merchantRaw LIKE '%' || :value || '%' OR category = :value) 
-        AND transactionType = 'DEBIT'
-        AND timestamp BETWEEN :startTime AND :endTime
-    """)
-    suspend fun getSpendForItem(value: String, startTime: Long, endTime: Long): Double
+    suspend fun getSpendForItem(value: String, startTime: Long, endTime: Long): Double = S.safe(0.0) {
+        S.rpc("spend_for_item", item(value, startTime, endTime)).trim().toDouble()
+    }
 
-    @Query("SELECT * FROM transactions WHERE notificationHash = :hash LIMIT 1")
-    suspend fun findByNotificationHash(hash: String): TransactionEntity?
+    suspend fun findByNotificationHash(hash: String): TransactionEntity? = S.safe(null) {
+        list("notificationHash=eq.${S.enc(hash)}&limit=1").firstOrNull()
+    }
 
-    @Query("""
-        SELECT DISTINCT category FROM transactions 
-        WHERE category != '' 
-        ORDER BY category ASC
-    """)
-    fun getAllCategories(): Flow<List<String>>
+    fun getAllCategories(): Flow<List<String>> = S.watch { S.rpcList<String>("all_categories") }
 
-    @Query("""
-        SELECT DISTINCT tag FROM transactions 
-        WHERE tag != '' 
-        ORDER BY tag ASC
-    """)
-    fun getAllTags(): Flow<List<String>>
+    fun getAllTags(): Flow<List<String>> = S.watch { S.rpcList<String>("all_tags") }
 
-    @Query("""
-        SELECT date(timestamp / 1000, 'unixepoch', 'localtime') as day, SUM(budgetImpactAmount) as total 
-        FROM transactions 
-        WHERE transactionType = 'DEBIT' 
-        AND timestamp BETWEEN :startTime AND :endTime 
-        GROUP BY day 
-        ORDER BY day ASC
-    """)
-    fun getDailySpendTrend(startTime: Long, endTime: Long): Flow<List<DailySpend>>
+    fun getDailySpendTrend(startTime: Long, endTime: Long): Flow<List<DailySpend>> =
+        S.watch { S.rpcList<DailySpend>("daily_spend_trend", range(startTime, endTime)) }
 
-    @Query("SELECT * FROM transactions WHERE splitDetails IS NOT NULL")
-    fun getTransactionsWithSplits(): Flow<List<TransactionEntity>>
+    fun getTransactionsWithSplits(): Flow<List<TransactionEntity>> =
+        S.watch { list("splitDetails=not.is.null&order=timestamp.desc") }
 
-    @Query("""
-        SELECT DISTINCT 
-            CASE 
-                WHEN merchantFriendly != '' THEN merchantFriendly 
-                WHEN merchantRaw != '' THEN merchantRaw 
-                ELSE NULL 
-            END as merchant 
-        FROM transactions 
-        WHERE merchant IS NOT NULL 
-        ORDER BY merchant ASC
-    """)
-    fun getAllMerchantNames(): Flow<List<String>>
+    fun getAllMerchantNames(): Flow<List<String>> = S.watch { S.rpcList<String>("all_merchant_names") }
 }
 
 data class CategoryTotal(
@@ -167,4 +88,3 @@ data class DailySpend(
     val day: String,
     val total: Double
 )
-

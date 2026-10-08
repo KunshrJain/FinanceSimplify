@@ -1,32 +1,28 @@
 package com.example.financesimply.data.db.dao
 
-import androidx.room.Dao
-import androidx.room.Delete
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
-import androidx.room.Query
-import androidx.room.Update
 import com.example.financesimply.data.db.entity.FavoriteOutletEntity
+import com.example.financesimply.data.remote.SupabaseClient as S
 import kotlinx.coroutines.flow.Flow
 
-@Dao
-interface FavoriteOutletDao {
+/** Supabase-backed outlets: merchants + merchant_aliases exposed through v_android_outlets. */
+class FavoriteOutletDao {
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(outlet: FavoriteOutletEntity): Long
+    suspend fun insert(outlet: FavoriteOutletEntity): Long = S.safe(-1L) {
+        S.rpc("upsert_outlet", mapOf("p" to outlet), notify = true).trim().toLong()
+    }
 
-    @Update
-    suspend fun update(outlet: FavoriteOutletEntity)
+    suspend fun update(outlet: FavoriteOutletEntity) { insert(outlet) }
 
-    @Delete
-    suspend fun delete(outlet: FavoriteOutletEntity)
+    suspend fun delete(outlet: FavoriteOutletEntity) {
+        S.safe(Unit) { S.rpc("delete_outlet", mapOf("p_id" to outlet.id), notify = true); Unit }
+    }
 
-    @Query("SELECT * FROM favorite_outlets ORDER BY friendlyName ASC")
-    fun getAll(): Flow<List<FavoriteOutletEntity>>
+    fun getAll(): Flow<List<FavoriteOutletEntity>> =
+        S.watch { S.getList<FavoriteOutletEntity>("v_android_outlets?order=friendlyName.asc") }
 
-    @Query("SELECT * FROM favorite_outlets")
-    suspend fun getAllSync(): List<FavoriteOutletEntity>
+    suspend fun getAllSync(): List<FavoriteOutletEntity> = S.safe(emptyList()) { S.getList("v_android_outlets") }
 
-    @Query("SELECT * FROM favorite_outlets WHERE :merchantRaw LIKE '%' || rawMerchantPattern || '%' LIMIT 1")
-    suspend fun findMatchingOutlet(merchantRaw: String): FavoriteOutletEntity?
+    suspend fun findMatchingOutlet(merchantRaw: String): FavoriteOutletEntity? = S.safe(null) {
+        S.rpcList<FavoriteOutletEntity>("find_matching_outlet", mapOf("p_raw" to merchantRaw)).firstOrNull()
+    }
 }

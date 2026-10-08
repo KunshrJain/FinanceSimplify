@@ -1,8 +1,5 @@
 package com.example.financesimply.data.db.entity
 
-import androidx.room.Entity
-import androidx.room.Index
-import androidx.room.PrimaryKey
 
 enum class TransactionType {
     DEBIT,
@@ -15,17 +12,7 @@ enum class TransactionStatus {
     DISMISSED
 }
 
-@Entity(
-    tableName = "transactions",
-    indices = [
-        Index(value = ["notificationHash"]),
-        Index(value = ["timestamp"]),
-        Index(value = ["category"]),
-        Index(value = ["status"])
-    ]
-)
 data class TransactionEntity(
-    @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val amount: Double,
     val merchantRaw: String = "",

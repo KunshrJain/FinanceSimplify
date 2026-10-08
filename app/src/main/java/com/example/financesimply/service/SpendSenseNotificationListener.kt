@@ -27,7 +27,7 @@ import java.security.MessageDigest
 
 /**
  * Foreground notification listener that captures transaction notifications
- * from whitelisted payment/banking apps, parses them, and stores in Room.
+ * from whitelisted payment/banking apps, parses them, and stores in Supabase (PostgreSQL).
  *
  * Deduplication: uses an MD5 hash of (packageName + amount + 60s time bucket)
  * to recognize duplicate notifications for the same transaction (e.g. "processing"
@@ -123,6 +123,7 @@ class SpendSenseNotificationListener : NotificationListenerService() {
             )
 
             val id = database.transactionDao().insert(transaction)
+            if (id < 0) return@launch  // could not reach Supabase
             val savedTransaction = transaction.copy(id = id)
 
             Log.d(TAG, "Transaction saved: ₹${parsed.amount} ${parsed.transactionType} from $packageName")

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FinanceSimply Web</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0;background:#f5f6f8;color:#1c1e21}
+header{background:#12355b;color:#fff;padding:12px 20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+header h1{font-size:18px;margin:0}
+nav button{background:none;border:0;color:#cfe0f5;padding:8px 12px;cursor:pointer;font-size:14px}
+nav button.on{color:#fff;border-bottom:2px solid #fff}
+main{padding:20px;max-width:1100px;margin:auto}
+.card{background:#fff;border-radius:8px;padding:16px;margin-bottom:16px;box-shadow:0 1px 3px #0002}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.kpi b{display:block;font-size:22px}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #eee}
+th{background:#fafafa}
+input,select,button.act{padding:6px 8px;margin:2px;font-size:14px}
+button.act{background:#12355b;color:#fff;border:0;border-radius:4px;cursor:pointer}
+.err{color:#b00020}.bar{background:#e3e8ef;border-radius:4px;height:10px}.bar i{display:block;height:10px;background:#2a7de1;border-radius:4px}
+.warn i{background:#d9534f}
+</style></head><body>
+<header><h1>FinanceSimply</h1>
+<select id="user"></select>
+<nav id="nav"></nav><span id="status"></span></header>
+<main id="main">Loading...</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script>
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const $ = s => document.querySelector(s), inr = n => '₹' + Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:2});
+const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let uid=null, tab='Dashboard';
+const tabs={Dashboard,Transactions,Splits,Budgets,Merchants,Watchlist,Reports};
+const monthStart=()=>{const d=new Date();return new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),1)).toISOString()}; // DB buckets months in UTC
+const ok=(r)=>{if(r.error){$('#status').innerHTML='<span class="err">'+esc(r.error.message)+'</span>';throw r.error}return r.data};
+
+async function init(){
+  $('#nav').innerHTML=Object.keys(tabs).map(t=>`<button data-t="${t}">${t}</button>`).join('');
+  $('#nav').onclick=e=>{if(e.target.dataset.t){tab=e.target.dataset.t;render()}};
+  try{
+    const users=ok(await db.from('app_users').select('id,full_name').order('id'));
+    $('#user').innerHTML=users.map(u=>`<option value="${u.id}">${esc(u.full_name)}</option>`).join('');
+    $('#user').onchange=()=>{uid=+$('#user').value;render()};
+    uid=users[0]?.id; render();
+  }catch(e){$('#main').innerHTML='<div class="card err">Cannot reach database. Run the SQL files in supabase/ first.</div>'}
+}
+async function render(){
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));
+  $('#status').textContent='';
+  if(uid==null){$('#main').innerHTML='<div class="card">No users. Run 03_seed.sql.</div>';return}
+  $('#main').innerHTML=await tabs[tab]();
+}
+const table=(rows,cols)=>rows.length?`<table><tr>${cols.map(c=>`<th>${c[0]}</th>`).join('')}</tr>${rows.map(r=>`<tr>${cols.map(c=>`<td>${c[1](r)}</td>`).join('')}</tr>`).join('')}</table>`:'<i>No data</i>';
+
+async function Dashboard(){
+  const m=ok(await db.from('v_monthly_summary').select('*').eq('user_id',uid).eq('month',monthStart()));
+  const cat=ok(await db.from('v_category_breakdown').select('*').eq('user_id',uid).eq('month',monthStart()).order('total',{ascending:false}));
+  const top=ok(await db.from('v_top_merchants').select('*').eq('user_id',uid).eq('month',monthStart()).order('total',{ascending:false}).limit(10));
+  const s=m[0]||{total_spend:0,total_income:0,pending_count:0}, max=Math.max(1,...cat.map(c=>+c.total));
+  return `<div class="grid"><div class="card kpi">Spend<b>${inr(s.total_spend)}</b></div><div class="card kpi">Income<b>${inr(s.total_income)}</b></div><div class="card kpi">Pending<b>${s.pending_count}</b></div></div>
+  <div class="card"><h3>Category breakdown</h3>${cat.map(c=>`<div>${esc(c.category)} - ${inr(c.total)}<div class="bar"><i style="width:${100*c.total/max}%"></i></div></div>`).join('')||'<i>No data</i>'}</div>
+  <div class="card"><h3>Top merchants</h3>${table(top,[['Merchant',r=>esc(r.merchant)],['Txns',r=>r.txn_count],['Total',r=>inr(r.total)]])}</div>`;
+}
+async function Transactions(){
+  const rows=ok(await db.from('v_transactions').select('*').eq('user_id',uid).order('txn_at',{ascending:false}).limit(100));
+  const cats=ok(await db.from('categories').select('id,name').order('name'));
+  return `<div class="card"><h3>Add transaction</h3>
+   <input id="a" type="number" step="0.01" placeholder="Amount"><input id="m" placeholder="Merchant (raw text)">
+   <select id="t"><option>DEBIT</option><option>CREDIT</option></select>
+   <select id="c"><option value="">(auto)</option>${cats.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select>
+   <button class="act" onclick="addTxn()">Add</button><small> Merchant and category auto-resolve via alias trigger.</small></div>
+  <div class="card">${table(rows,[['Date',r=>new Date(r.txn_at).toLocaleDateString()],['Merchant',r=>esc(r.merchant)],['Category',r=>esc(r.category||'-')],['Type',r=>r.transaction_type],['Amount',r=>inr(r.amount)],['Impact',r=>inr(r.budget_impact)],['Tags',r=>esc(r.tags)],['Status',r=>r.status],['',r=>`<button class="act" onclick="setStatus(${r.id},'TAGGED')">Tag</button><button class="act" onclick="setStatus(${r.id},'DISMISSED')">Dismiss</button><button class="act" onclick="delTxn(${r.id})">Del</button>`]])}</div>`;
+}
+window.addTxn=async()=>{const row={user_id:uid,amount:+$('#a').value,merchant_raw:$('#m').value,transaction_type:$('#t').value};if($('#c').value)row.category_id=+$('#c').value;ok(await db.from('transactions').insert(row));render()};
+window.setStatus=async(id,s)=>{ok(await db.from('transactions').update({status:s}).eq('id',id));render()};
+window.delTxn=async id=>{ok(await db.from('transactions').delete().eq('id',id));render()};
+
+async function Splits(){
+  const bal=ok(await db.from('v_split_balances').select('*').eq('user_id',uid));
+  const rows=ok(await db.from('split_participants').select('id,name,amount_owed,is_settled,transactions!inner(user_id,merchant_raw,amount,txn_at)').eq('transactions.user_id',uid));
+  return `<div class="card"><h3>Balances</h3>${table(bal,[['Person',r=>esc(r.participant)],['Outstanding',r=>inr(r.outstanding)],['Settled',r=>inr(r.settled)]])}</div>
+  <div class="card"><h3>Split details</h3>${table(rows,[['Transaction',r=>esc(r.transactions.merchant_raw)],['Total',r=>inr(r.transactions.amount)],['Person',r=>esc(r.name)],['Owes',r=>inr(r.amount_owed)],['Settled',r=>r.is_settled?'Yes':`<button class="act" onclick="settle(${r.id})">Settle</button>`]])}</div>`;
+}
+window.settle=async id=>{ok(await db.from('split_participants').update({is_settled:true}).eq('id',id));render()};
+
+async function Budgets(){
+  const rows=ok(await db.from('v_budget_status').select('*').eq('user_id',uid));
+  return `<div class="card">${rows.map(r=>`<div>${esc(r.category)}: ${inr(r.spent)} / ${inr(r.monthly_limit)} (${r.pct_used}%)${r.alert?' <b class="err">ALERT</b>':''}<div class="bar ${r.alert?'warn':''}"><i style="width:${Math.min(100,r.pct_used)}%"></i></div></div>`).join('')||'<i>No budgets</i>'}</div>`;
+}
+async function Merchants(){
+  const rows=ok(await db.from('merchants').select('id,friendly_name,categories(name),merchant_aliases(raw_pattern)').order('friendly_name'));
+  return `<div class="card">${table(rows,[['Outlet',r=>esc(r.friendly_name)],['Default category',r=>esc(r.categories?.name||'-')],['Patterns',r=>esc(r.merchant_aliases.map(a=>a.raw_pattern).join(', '))]])}</div>`;
+}
+async function Watchlist(){
+  const rows=ok(await db.from('watched_items').select('id,type,categories(name),merchants(friendly_name)').eq('user_id',uid));
+  return `<div class="card">${table(rows,[['Type',r=>r.type],['Item',r=>esc(r.categories?.name||r.merchants?.friendly_name)]])}</div>`;
+}
+async function Reports(){
+  const [all,daily]=[ok(await db.from('v_monthly_summary').select('*').eq('user_id',uid).order('month',{ascending:false})),
+    ok(await db.from('v_daily_spend').select('*').eq('user_id',uid).order('day',{ascending:false}).limit(14))];
+  return `<div class="card"><h3>Monthly summary (v_monthly_summary)</h3>${table(all,[['Month',r=>r.month.slice(0,7)],['Spend',r=>inr(r.total_spend)],['Income',r=>inr(r.total_income)],['Pending',r=>r.pending_count]])}</div>
+  <div class="card"><h3>Daily spend (v_daily_spend)</h3>${table(daily,[['Day',r=>r.day],['Total',r=>inr(r.total)]])}</div>`;
+}
+init();
+</script></body></html>

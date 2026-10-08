@@ -40,10 +40,6 @@ android {
     }
 }
 
-ksp {
-    arg("room.schemaLocation", "$projectDir/schemas")
-}
-
 dependencies {
     // Core
     implementation(libs.androidx.core.ktx)
@@ -67,10 +63,8 @@ dependencies {
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.lifecycle.runtime.compose)
 
-    // Room
-    implementation(libs.room.runtime)
-    implementation(libs.room.ktx)
-    ksp(libs.room.compiler)
+    // Supabase (PostgREST over HTTPS)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     // DataStore
     implementation(libs.datastore.preferences)
